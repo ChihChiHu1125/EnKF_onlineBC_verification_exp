@@ -2,6 +2,8 @@
 *
 
 !*/
+/EnsembleOnlineBC/
+/run/tmp_bin/
 
 # to track
 !.gitignore
