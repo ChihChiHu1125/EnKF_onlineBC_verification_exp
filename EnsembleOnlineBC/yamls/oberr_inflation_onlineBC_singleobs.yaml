@@ -1,0 +1,14 @@
+files:
+  obsout_infile: /home/project/17001770/weather_department/dae/hucc/BC_verification_v4/dbOut_ensBC/obsout_da_ahi-cld_himawari9_single_obs.h5
+  satbias_infile: /home/project/17001770/weather_department/dae/hucc/VarBC_stats/initial_satbias_files/satbias_cov_ahi-cld_himawari9_variance_one.h5
+  obsout_outfile: /home/project/17001770/weather_department/dae/hucc/BC_verification_v4/dbOut_ensBC/obsout_da_ahi-cld_himawari9_single_obs.h5
+
+predictors: # VarBC predictors
+  - constant
+
+ensemble: # LGETKF config
+  n_ens: 32
+  n_eig: 14
+
+channels: # used channel
+  ch_used: [8,9,10,13] 

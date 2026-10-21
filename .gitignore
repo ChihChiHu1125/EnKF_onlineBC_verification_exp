@@ -1,0 +1,13 @@
+# to ignore 
+*
+
+!*/
+
+# to track
+!.gitignore
+!*.yaml
+!*.ksh
+
+!/EnsembleOnlineBC_updated/**
+!/dbOut_VarBC/**
+!/dbOut_ensBC/**

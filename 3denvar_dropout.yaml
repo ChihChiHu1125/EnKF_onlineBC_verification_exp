@@ -1,0 +1,252 @@
+# reduce obs space for regional applications
+_reduce obs space: &reduceObsSpace
+  filter: Domain Check
+  where:
+    - variable:
+        name: MetaData/latitude
+      minvalue: -9.06518
+      maxvalue: 11.4725
+    - variable:
+        name: MetaData/longitude
+      minvalue: 91.7506
+      maxvalue: 112.268
+  action:
+    name: reduce obs space
+
+_obs space: &ObsSpace
+  obs perturbations seed: 1
+  io pool:
+    max pool size: 1
+    write multiple files: true
+  distribution:
+    name: RoundRobin
+
+_non-height-based obs localizations: &horizObsLoc
+  _blank: null
+
+
+_obs error diagonal: &ObsErrorDiagonal
+  covariance model: diagonal
+  zero-mean perturbations: true
+  member: 1
+  number of members: 1
+
+_clear crtm: &clearCRTMObsOperator
+  name: CRTM
+  SurfaceWindGeoVars: uv
+  Absorbers: [H2O, O3]
+  linear obs operator:
+    Absorbers: [H2O]
+  obs options: &CRTMObsOptions
+    EndianType: little_endian
+    CoefficientPath: /home/project/17001770/weather_department/cmd/ncar/taosun/regional_mpasjedi/CRTM/Coeffs_V2.4/
+    IRVISlandCoeff: IGBP
+
+_cloudy crtm: &cloudyCRTMObsOperator
+  name: CRTM
+  SurfaceWindGeoVars: uv
+  Absorbers: [H2O, O3]
+  Clouds: [Water, Ice, Rain, Snow, Graupel]
+  Cloud_Seeding: true
+  linear obs operator:
+    Absorbers: [H2O]
+    Clouds: [Water, Ice, Rain, Snow, Graupel]
+  obs options:
+    <<: *CRTMObsOptions
+
+_get values: &GetValues
+  nnearest: 3
+
+
+_multi iteration filter: &multiIterationFilter
+  apply at iterations: 0,1,2,3,4,5
+
+_iteration: &iterationConfig
+  geometry:
+    nml_file: namelist.atmosphere_R3km-SG
+    streams_file: streams.atmosphere_R3km-SG
+    deallocate non-da fields: true
+  gradient norm reduction: 1e-3
+#  gradient norm reduction: 1e-6
+
+
+
+_member: &memberConfig
+  date: &analysisDate 2024-09-16T18:00:00Z
+  state variables: &incvars [water_vapor_mixing_ratio_wrt_moist_air,air_pressure_at_surface,air_temperature,northward_wind,eastward_wind, rain_water, snow_water, cloud_liquid_ice, cloud_liquid_water, graupel]
+  stream name: ensemble
+
+output:
+  filename: an.$Y-$M-$D_$h.$m.$s.nc
+  stream name: analysis
+
+variational:
+  minimizer:
+    algorithm: DRPCG
+  iterations:
+  - <<: *iterationConfig
+    diagnostics:
+      departures: ombg
+    ninner: 60
+  #- <<: *iterationConfig
+  #  ninner: 60
+
+final:
+  diagnostics:
+    departures: oman
+
+cost function:
+  cost type: 3D-Var
+  time window:
+    begin: 2024-09-16T17:30:00Z
+    length: PT1H
+  jb evaluation: false
+  geometry:
+    nml_file: namelist.atmosphere_R3km-SG
+    streams_file: streams.atmosphere_R3km-SG
+    deallocate non-da fields: true
+  analysis variables: *incvars
+  background:
+   #state variables: [spechum,surface_pressure,temperature,uReconstructMeridional,uReconstructZonal,theta,rho,u,w,qv,pressure,landmask,observable_domain_mask,wind_reduction_factor_at_10m,xice,snowc,skintemp,ivgtyp,isltyp,snowh,vegfra,u10,v10,t2m,q2,lai,smois,tslb,pressure_p]
+    state variables: [water_vapor_mixing_ratio_wrt_moist_air,air_pressure_at_surface,air_temperature,northward_wind,eastward_wind,air_potential_temperature,dry_air_density,u,w,water_vapor_mixing_ratio_wrt_dry_air,air_pressure,landmask,observable_domain_mask,surface_roughness_length,seaice_fraction,snowc,skin_temperature_at_surface,ivgtyp,isltyp,snowh,vegetation_area_fraction,eastward_wind_at_10m,northward_wind_at_10m,air_temperature_at_2m,water_vapor_mixing_ratio_wrt_moist_air_at_2m,lai,smois,tslb,pressure_p,equivalent_reflectivity_factor,cloud_liquid_water,cloud_liquid_ice,graupel,rain_water,snow_water,cldfrac,re_cloud,re_snow,re_ice]
+    filename: bg.2024-09-16_18.00.00.nc
+    date: *analysisDate
+  background error:
+    covariance model: ensemble
+    localization:
+      localization method: SABER
+      saber central block:
+        saber block name: BUMP_NICAS
+        active variables: *incvars
+        read:
+          io:
+            data directory: /home/project/17001770/weather_department/dae/hucc/BC_verification/BUMP_files
+            files prefix: bumploc_300km4km
+          drivers:
+            #multivariate strategy: crossed
+            multivariate strategy: duplicated
+            read local nicas: true
+          model:
+            level for 2d variables: last
+            #groups:
+            #- group name: "large_scale"
+            #  variables: [spechum,surface_pressure,temperature,uReconstructMeridional,uReconstructZonal]
+            #- group name: "small_scale"
+            #  variables: [qc,qi,qg,qr,qs]
+    members from template:
+      template:
+        <<: *memberConfig
+        filename: bg/mem%iMember%/bg.2024-09-16_18.00.00.nc
+      pattern: %iMember%
+      start: 1
+      zero padding: 3
+      nmembers: 32
+
+  observations:
+    obs perturbations: false
+    observers:
+    - obs space:
+        <<: *ObsSpace
+        name: ahi-cld_himawari9
+        _obsdatain: &ObsDataIn
+          engine:
+            type: H5File
+            obsfile: /home/project/17001770/weather_department/dae/hucc/BC_verification/dbIn/ahi-cld_himawari9_obs_2024091618.h5
+        _obsdataout: &ObsDataOut
+          engine:
+            type: H5File
+            obsfile: /home/project/17001770/weather_department/dae/hucc/BC_verification/dbOut_VarBC/obsout_da_ahi-cld_himawari9_dropout.h5
+        obsdatain: *ObsDataIn
+        obsdataout: *ObsDataOut
+        simulated variables: [brightnessTemperature]
+        channels: &cldahi_himawari9_channels 8,9,10,13
+      obs error: *ObsErrorDiagonal
+      <<: *horizObsLoc
+      obs operator:
+        <<: *cloudyCRTMObsOperator
+        obs options:
+          <<: *CRTMObsOptions
+          Sensor_ID: ahi_himawari9
+      get values:
+        <<: *GetValues
+      obs bias:
+        input file: /home/project/17001770/weather_department/dae/hucc/VarBC_stats/initial_satbias_files/satbias_ahi-cld_himawari9_variance_one.h5
+        output file: /home/project/17001770/weather_department/dae/hucc/BC_verification/dbOut_VarBC/satbias_ahi-cld_himawari9_dropout.h5
+        variational bc:
+          predictors:
+          - name: constant
+        # below are required predictors for cloud-constraint cycling:
+        # note that these are not necessarily predictors (see tools/EnsembleOnlineBC/mpas_jedi_online_satbias_estimator.yaml for definitions), 
+        # but we need to include them here so their info can be stored in the obsout*.h5 for further usage/diagnostics
+        #- name: clearBkgBrightnessTemperature
+        #- name: symmetricCloudImpactIR
+        #- name: symmetricCloudImpactBTlimPred
+        #  channels: *cldahi_himawari9_channels
+        #  btlim: [234.0,246.0,258.8,292]
+
+        covariance:
+          minimal required obs number: 20
+          variance range: [1.0e-6, 10000000.]
+          step size: 1.0e-4
+          largest analysis variance: 10000.0
+          prior:
+            input file: /home/project/17001770/weather_department/dae/hucc/VarBC_stats/initial_satbias_files/satbias_cov_ahi-cld_himawari9_variance_one.h5
+            inflation:
+              ratio: 1.0
+              ratio for small dataset: 1.0
+          output file: /home/project/17001770/weather_department/dae/hucc/BC_verification/dbOut_VarBC/satbias_cov_ahi-cld_himawari9_dropout.h5
+
+       #qc bias filters:
+       # - name: cloud_diff_filter
+       #   threshold: [5.0, 5.0, 5.0]
+       #   channels: 8-10
+
+      obs filters:
+      - filter: Domain Check
+        where:
+        - variable:
+            name: MetaData/sensorZenithAngle
+          maxvalue: 60.0
+      - filter: Gaussian Thinning
+        horizontal_mesh: 145.0
+        action:
+          name: reduce obs space
+      - filter: Perform Action
+        <<: *multiIterationFilter
+        filter variables:
+        - name: brightnessTemperature
+          channels: *cldahi_himawari9_channels
+        action:
+          name: assign error
+          _symmetric cld fits 3km: &ahi_himawari9_SymmCldFits-3km
+  ## 3 km, bias correction - from Xuewei Zhang for 8-10 channels
+            x0: [0.5, 0.5, 0.5, 0.5]
+            x1: [17.00, 22.50, 27.50, 36.0]
+            err0: [3.00, 3.50, 3.10, 2.56]
+            err1: [13.40, 16.80, 20.00, 40.5]
+          error function:
+            name: ObsFunction/ObsErrorModelRamp
+            channels: *cldahi_himawari9_channels
+            options:
+              <<: *ahi_himawari9_SymmCldFits-3km
+              channels: *cldahi_himawari9_channels
+              xvar:
+                name: ObsFunction/SymmCldImpact
+                channels: *cldahi_himawari9_channels
+                options:
+                  channels: *cldahi_himawari9_channels
+                  btlim: [234.0, 246.0, 258.8, 292]
+
+      - filter: Bounds Check
+        filter variables:
+        - name: brightnessTemperature
+          channels: *cldahi_himawari9_channels
+        test variables:
+        - name: GeoVaLs/observable_domain_mask
+        flag all filter variables if any test variable is out of bounds: true
+        minvalue: 0.0
+        maxvalue: 0.1
+      - filter: Background Check
+        threshold: 3.0
+        <<: *multiIterationFilter
+      - *reduceObsSpace

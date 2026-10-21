@@ -1,0 +1,30 @@
+group_names: # group names in obsout*.h5
+  qc:        EffectiveQC0
+  obs:       ObsValue
+  hofx:      hofx1             # posterior (analysis) HofX
+  bias:      ObsBias1
+  obs_error: EffectiveError0          # R matrix — read from prior (background) obsout file
+
+predictors:
+  - constant
+  - sensorScanAngle
+  - SymmCldImpact
+  - SymmCldImpact_order_2
+  - SymmCldImpact_order_3
+
+channels_used: [8,9,10,13]
+
+inflation_factor: 1.0  # prior variance inflation factor
+
+data_selection:
+  method: default
+  cloud_diff_threshold: 5
+
+files:
+  obsout_posterior:  # analysis obsout files — only used for obs, hofx, bias (get_Yd)
+    - /home/project/17001770/weather_department/dae/hucc/BC_verification_v4/dbOut_VarBC/obsout_da_ahi-cld_himawari9_cloudpred.h5
+  obsout_prior:      # background obsout files — QC, predictors, R; must pair 1-to-1 with obsout_posterior
+    - /home/project/17001770/weather_department/dae/hucc/BC_verification_v4/dbOut_VarBC/obsout_da_ahi-cld_himawari9_cloudpred.h5
+  satbias_input:  /home/project/17001770/weather_department/dae/hucc/VarBC_stats/initial_satbias_files/satbias_ahi-cld_himawari9_v4.h5
+  satbias_output: /home/project/17001770/weather_department/dae/hucc/BC_verification_v4/dbOut_ensBC/satbias_post_ahi-cld_himawari9_cloudpred_useVarInc.h5
+  csv_output: /home/project/17001770/weather_department/dae/hucc/BC_verification_v4/dbOut_ensBC/satbias_post_ahi-cld_himawari9_cloudpred_useVarInc.csv

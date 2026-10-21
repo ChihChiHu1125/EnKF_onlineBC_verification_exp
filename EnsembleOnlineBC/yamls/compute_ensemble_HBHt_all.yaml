@@ -1,0 +1,30 @@
+group_names:
+  qc:        EffectiveQC0
+  bias:      ObsBias0          # needed only for cloud_consistent QC
+  hofx_mean: hofx_y_mean_xb0  # needed only for cloud_consistent QC
+
+channels_used: [8, 9, 10, 13]
+
+# which ensemble members to use:
+#   'original'  -> hofx0_<n>              (32 members)
+#   'modulated' -> hofxm0_<neig>_<n>      (14 x 32 = 448 members)  [default]
+#   'both'      -> hofx0 + hofxm0 combined
+member_type: modulated
+
+localization:
+  horizontal_scale: 300  # km     
+
+# diagonal_only: true  -> zero out all off-diagonal elements of HBH^T
+#                         (saves memory; equivalent to ignoring cross-obs covariance)
+# diagonal_only: false -> full N×N matrix  [default]
+diagonal_only: false
+
+data_selection:
+  method: default
+  cloud_diff_threshold: 5
+
+files:
+  obsout: /home/project/17001770/weather_department/dae/hucc/BC_verification_v4/dbOut_ensBC/obsout_da_ahi-cld_himawari9.h5
+
+  # output: HBHt.npy  +  HBHt_meta.json  (auto-generated)
+  hbht_output: /home/project/17001770/weather_department/dae/hucc/BC_verification_v4/dbOut_ensBC/HBHT/HBHT.npy
